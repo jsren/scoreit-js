@@ -1,5 +1,10 @@
 {
+    "compilerOptions": {
+        "module": "amd",
+    },
     "files": [
+        "ui.ts",
+        "score_stave.ts",
         "main.ts",
     ]
 }

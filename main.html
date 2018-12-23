@@ -2,10 +2,14 @@
 <html width="100%" height="100%">
     <head>
         <title>Sheet HTML</title>
+        <script src="node_modules/requirejs/require.js"></script>
     </head>
-    <body style="height:100%; width: 100%">
-    <canvas id='main_canvas' style="height:100%; width: 100%">
+    <body style="height:100%; width: 100%; overflow: hidden">
+    <canvas id='main_canvas' style="height:100%; width: 100%; overflow: hidden">
     </canvas>
-    <script src="main.js"></script>
+    <script>
+        var exports = { };
+        requirejs(['./main'], (main) => { main.canvas_setup(); }, (e) => { console.error(e); });
+    </script>
     </body>
 </html>
