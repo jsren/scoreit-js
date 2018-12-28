@@ -1,42 +1,15 @@
-import { UIControl, Point } from "./ui";
-import { ScoreStave } from "./score_stave";
+/* main.ts - (c) 2018 James Renwick */
 
-export class ScoreDocument
+import { Point } from "./ui";
+import { ScoreDocument, ScorePart } from "./score_stave";
+
+const score = new ScoreDocument({ x: 1024, y: 1280 });
+
+function scoreSetup()
 {
-    staves : ScoreStave[] = [];
+    score.parts.push({instrument: "piano", startTime: 0, endTime: 0, items:[] });
+    score.parts.push({instrument: "cello", startTime: 0, endTime: 0, items:[] });
 }
-
-export class ScorePage extends UIControl
-{
-    constructor(width : number, height : number)
-    {
-        super(undefined);
-        this.size.x = width;
-        this.size.y = height;
-
-        if (isNaN(width + height)) {
-            throw new Error("ScorePage dimensions must be absolute.");
-        }
-    }
-
-    draw(context2d: CanvasRenderingContext2D): void
-    {
-        context2d.fillStyle = '#DDD';
-        context2d.fillRect(this._layoutInfo.position.x, this._layoutInfo.position.y,
-                           this._layoutInfo.actualSize.x, this._layoutInfo.actualSize.y);
-    }
-}
-
-
-
-const page = new ScorePage(1024, 1280);
-
-const score : ScoreDocument = {
-    staves: [
-        new ScoreStave(page),
-        new ScoreStave(page)
-    ]
-};
 
 var currentLayoutCycle : number = 0;
 const main_canvas = <HTMLCanvasElement>document.getElementById("main_canvas");
@@ -49,15 +22,8 @@ const devicePixelRatio = window.devicePixelRatio | 1;
 
 function globalLayout()
 {
-    var offsetY = 5;
-    for (var stave of score.staves)
-    {
-        stave.margin.top += offsetY;
-        offsetY += stave.size.y + 10;
-    }
-
-    page.computeInitialLayout(currentLayoutCycle);
-    page.computeFinalLayout(currentLayoutCycle);
+    score.computeInitialLayout(currentLayoutCycle);
+    score.computeFinalLayout(currentLayoutCycle);
     currentLayoutCycle++;
 }
 
@@ -66,12 +32,11 @@ function globalDraw(context2d : CanvasRenderingContext2D)
     context2d.setTransform(1, 0, 0, 1, 0, 0);
     context2d.clearRect(0, 0, main_canvas.width, main_canvas.height);
     context2d.scale(scale * devicePixelRatio, scale * devicePixelRatio);
-    page.drawHierarchy(context2d);
+    score.drawHierarchy(context2d);
 }
 
 export function canvas_setup()
 {
-    var rect = main_canvas.getBoundingClientRect();
     main_canvas.width = window.innerWidth * devicePixelRatio;
     main_canvas.height = window.innerHeight * devicePixelRatio;
     context2d.scale(devicePixelRatio, devicePixelRatio);
@@ -93,8 +58,8 @@ export function canvas_setup()
     main_canvas.onmousemove = (e) => {
         if (mouse_down)
         {
-            page.margin.left += e.clientX - lastMousePos.x;
-            page.margin.top += e.clientY - lastMousePos.y;
+            score.margin.left += (e.clientX - lastMousePos.x) / scale;
+            score.margin.top += (e.clientY - lastMousePos.y) / scale;
             lastMousePos = { x: e.clientX, y: e.clientY };
 
             globalLayout();
@@ -102,6 +67,7 @@ export function canvas_setup()
         }
     };
 
+    scoreSetup();
     globalLayout();
     globalDraw(context2d);
 }

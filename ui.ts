@@ -1,3 +1,4 @@
+/* ui.ts - (c) 2018 James Renwick */
 
 export enum Alignment
 {
@@ -6,6 +7,12 @@ export enum Alignment
     Center = 3,
     Top = 0,
     Bottom = 1
+}
+
+export enum Sizing
+{
+    ToChildren,
+    ToParent
 }
 
 export class Point
@@ -41,11 +48,27 @@ export abstract class UIControl
 {
     _layoutInfo : LayoutInfo = new LayoutInfo();
     margin : Rect = new Rect();
+    padding : Rect = new Rect();
     parent : UIControl | undefined = undefined;
     children : UIControl[] = [];
     size : Point = new Point();
     xAlign : Alignment = Alignment.Left;
     yAlign : Alignment = Alignment.Left;
+    xSizing : Sizing = Sizing.ToChildren;
+    ySizing : Sizing = Sizing.ToChildren;
+
+    marginSizeX() {
+        return Math.max(0, this.margin.left) + Math.max(0, this.margin.right);
+    }
+    marginSizeY() {
+        return Math.max(0, this.margin.top) + Math.max(0, this.margin.bottom);
+    }
+    paddingSizeX() {
+        return Math.max(0, this.padding.left) + Math.max(0, this.padding.right);
+    }
+    paddingSizeY() {
+        return Math.max(0, this.padding.top) + Math.max(0, this.padding.bottom);
+    }
 
     constructor(parent : UIControl | undefined)
     {
@@ -79,11 +102,19 @@ export abstract class UIControl
         for (var child of this.children)
         {
             child.computeInitialLayout(layoutCycle);
-            if (this.size.x === undefined && (this._layoutInfo.actualSize.x === undefined || child._layoutInfo.actualSize.x > this._layoutInfo.actualSize.x)) {
-                this._layoutInfo.actualSize.x = child._layoutInfo.actualSize.x + (Math.max(0, this.margin.left) + Math.max(0, this.margin.right));
+            if (this.size.x === undefined && this.xSizing == Sizing.ToChildren)
+            {
+                const childSizeX = child._layoutInfo.actualSize.x + child.marginSizeX() + this.paddingSizeX();
+                if (this._layoutInfo.actualSize.x === undefined || childSizeX > this._layoutInfo.actualSize.x) {
+                    this._layoutInfo.actualSize.x = childSizeX;
+                }
             }
-            if (this.size.y === undefined && (this._layoutInfo.actualSize.y === undefined || child._layoutInfo.actualSize.y > this._layoutInfo.actualSize.y)) {
-                this._layoutInfo.actualSize.y = child._layoutInfo.actualSize.y + (Math.max(0, this.margin.top) + Math.max(0, this.margin.bottom));
+            if (this.size.y === undefined && this.ySizing == Sizing.ToChildren)
+            {
+                const childSizeY = child._layoutInfo.actualSize.y + child.marginSizeY() + this.paddingSizeY();
+                if (this._layoutInfo.actualSize.y === undefined || childSizeY > this._layoutInfo.actualSize.y) {
+                    this._layoutInfo.actualSize.y = childSizeY;
+                }
             }
         }
     }
@@ -95,31 +126,29 @@ export abstract class UIControl
         this._layoutInfo.lastFinalLayoutCycle = layoutCycle;
 
         // Calculate size as necessary
-        if (this._layoutInfo.actualSize.x === undefined && this.parent !== undefined)
+        if (this._layoutInfo.actualSize.x === undefined && this.xSizing == Sizing.ToParent)
         {
             const marginExtra = -(Math.min(0, this.margin.left) + Math.min(0, this.margin.right));
-            this._layoutInfo.actualSize.x = this.parent._layoutInfo.actualSize.x + marginExtra;
+            this._layoutInfo.actualSize.x = this.parent._layoutInfo.actualSize.x - this.parent.paddingSizeX() + marginExtra;
         }
-        if (this._layoutInfo.actualSize.y === undefined && this.parent !== undefined)
+        if (this._layoutInfo.actualSize.y === undefined && this.ySizing == Sizing.ToParent)
         {
             const marginExtra = -(Math.min(0, this.margin.top) + Math.min(0, this.margin.bottom));
-            this._layoutInfo.actualSize.y = this.parent._layoutInfo.actualSize.y + marginExtra;
+            this._layoutInfo.actualSize.y = this.parent._layoutInfo.actualSize.y - this.parent.paddingSizeY() + marginExtra;
         }
 
         // Calculate position
-        this._layoutInfo.position.x = 0;
-        this._layoutInfo.position.y = 0;
         if (this.parent !== undefined)
         {
             this._layoutInfo.position = { ...this.parent._layoutInfo.position };
-            const marginX = Math.max(0, this.margin.left) + Math.max(0, this.margin.right);
-            const marginY = Math.max(0, this.margin.top) + Math.max(0, this.margin.bottom);
-            const extraX = this.parent._layoutInfo.actualSize.x - (this._layoutInfo.actualSize.x + marginX);
-            const extraY = this.parent._layoutInfo.actualSize.y - (this._layoutInfo.actualSize.y + marginY);
+            const extraX = this.parent._layoutInfo.actualSize.x - this.parent.paddingSizeX()
+                           - (this._layoutInfo.actualSize.x + this.marginSizeX());
+            const extraY = this.parent._layoutInfo.actualSize.y - this.parent.paddingSizeY()
+                           - (this._layoutInfo.actualSize.y + this.marginSizeY());
 
             // Handle margins
-            this._layoutInfo.position.x += this.margin.left;
-            this._layoutInfo.position.y += this.margin.top;
+            this._layoutInfo.position.x += this.parent.padding.left + this.margin.left;
+            this._layoutInfo.position.y += this.parent.padding.top + this.margin.top;
 
             // Handle alignment
             if (this.xAlign == Alignment.Center) {
@@ -138,8 +167,8 @@ export abstract class UIControl
         else
         {
             // Handle margins only
-            this._layoutInfo.position.x += this.margin.left;
-            this._layoutInfo.position.y += this.margin.top;
+            this._layoutInfo.position.x = this.margin.left;
+            this._layoutInfo.position.y = this.margin.top;
         }
 
         // Handle children
@@ -156,7 +185,7 @@ export abstract class UIControl
         this.draw(context2d);
         for (var child of this.children)
         {
-            child.draw(context2d);
+            child.drawHierarchy(context2d);
         }
     }
 }
